@@ -81,7 +81,15 @@ export const GAME_CONFIG = {
   // TURN TIMING
   // ===================
 
-  turnDurationMs: 2000,          // 0 = manual turns, >0 = auto-advance (ms)
+  turnDurationMs: 2000,          // Base turn duration (ms) - modified by speed multiplier
+
+  // Speed control options
+  speedOptions: [
+    { label: '⏹', multiplier: 0 },      // Paused
+    { label: '1x', multiplier: 1 },     // Normal speed (2000ms)
+    { label: '1.5x', multiplier: 1.5 }, // Faster (1333ms)
+    { label: '2x', multiplier: 2 }      // Fastest (1000ms)
+  ],
 
   // ===================
   // MAP GENERATION

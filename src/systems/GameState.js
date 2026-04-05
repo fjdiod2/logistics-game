@@ -47,8 +47,16 @@ class GameStateManager {
     this.lastTurnSummary = null
 
     // Timer control for real-time mode
-    this.paused = true
+    this.speedIndex = 0  // 0 = paused, 1 = 1x, 2 = 1.5x, 3 = 2x
     this.timerHandle = null
+  }
+
+  /**
+   * Check if game is paused (speed index 0)
+   * @returns {boolean}
+   */
+  get paused() {
+    return this.speedIndex === 0
   }
 
   /**
@@ -65,32 +73,58 @@ class GameStateManager {
    */
   start() {
     // Game starts paused, user must click Play
-    this.paused = true
-    this.emit('paused', { paused: true })
+    this.speedIndex = 0
+    this.emit('speedChanged', { speedIndex: 0 })
   }
 
   /**
-   * Pause the game loop
+   * Set game speed
+   * @param {number} index - Speed index (0 = paused, 1 = 1x, 2 = 1.5x, 3 = 2x)
    */
-  pause() {
+  setSpeed(index) {
+    // Clear existing timer
     if (this.timerHandle) {
       clearInterval(this.timerHandle)
       this.timerHandle = null
     }
-    this.paused = true
-    this.emit('paused', { paused: true })
+
+    // Clamp index to valid range
+    const speedOptions = GAME_CONFIG.speedOptions || []
+    this.speedIndex = Math.max(0, Math.min(index, speedOptions.length - 1))
+
+    // If speed > 0, create new interval
+    if (this.speedIndex > 0 && GAME_CONFIG.turnDurationMs > 0) {
+      const multiplier = speedOptions[this.speedIndex]?.multiplier || 1
+      const interval = Math.round(GAME_CONFIG.turnDurationMs / multiplier)
+      this.timerHandle = setInterval(() => {
+        this.nextTurn()
+      }, interval)
+    }
+
+    this.emit('speedChanged', { speedIndex: this.speedIndex })
   }
 
   /**
-   * Resume the game loop
+   * Get current speed index
+   * @returns {number}
+   */
+  getSpeed() {
+    return this.speedIndex
+  }
+
+  /**
+   * Pause the game loop (shortcut for setSpeed(0))
+   */
+  pause() {
+    this.setSpeed(0)
+  }
+
+  /**
+   * Resume the game loop at normal speed (shortcut for setSpeed(1))
    */
   resume() {
-    if (this.paused && GAME_CONFIG.turnDurationMs > 0) {
-      this.paused = false
-      this.timerHandle = setInterval(() => {
-        this.nextTurn()
-      }, GAME_CONFIG.turnDurationMs)
-      this.emit('resumed', { paused: false })
+    if (this.paused) {
+      this.setSpeed(1)
     }
   }
 
@@ -101,9 +135,9 @@ class GameStateManager {
   togglePause() {
     console.log('togglePause called, current paused:', this.paused)
     if (this.paused) {
-      this.resume()
+      this.setSpeed(1)
     } else {
-      this.pause()
+      this.setSpeed(0)
     }
     console.log('togglePause done, new paused:', this.paused)
     return this.paused

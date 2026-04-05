@@ -133,7 +133,7 @@ function startGame() {
 
     // Start game loop (begins paused)
     GameState.start()
-    topBar.updatePauseButton()
+    topBar.updateSpeedButtons()
   })
 
   // Handle worker allocation changes

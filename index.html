@@ -77,8 +77,41 @@
 
       .btn:hover { background: #ff6b8a; }
       .btn:disabled { background: #555; cursor: not-allowed; }
-      .btn.playing { background: #4ade80; }
-      .btn.playing:hover { background: #22c55e; }
+
+      /* Speed control buttons */
+      .speed-controls {
+        display: flex;
+        gap: 4px;
+      }
+
+      .btn-speed {
+        background: #1a1a2e;
+        color: #888;
+        border: 1px solid #0f3460;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+        min-width: 42px;
+        transition: all 0.15s ease;
+      }
+
+      .btn-speed:hover {
+        background: #0f3460;
+        color: #eee;
+        border-color: #e94560;
+      }
+
+      .btn-speed.active {
+        background: #e94560;
+        color: #fff;
+        border-color: #e94560;
+      }
+
+      .btn-speed.active:hover {
+        background: #ff6b8a;
+      }
 
       .btn-small {
         background: #0f3460;
@@ -1214,7 +1247,7 @@
           </div>
         </div>
         <div class="controls">
-          <button class="btn" id="btn-next-turn">▶ Play</button>
+          <div class="speed-controls" id="speed-controls"></div>
         </div>
       </div>
       <div id="main-area">

@@ -2,6 +2,7 @@
 // Displays global game stats and controls
 
 import { GameState } from '../systems/GameState.js'
+import { GAME_CONFIG } from '../data/gameConfig.js'
 
 export class TopBar {
   constructor() {
@@ -10,28 +11,45 @@ export class TopBar {
       population: document.getElementById('stat-population'),
       soldiers: document.getElementById('stat-soldiers'),
       turn: document.getElementById('stat-turn'),
-      nextTurnBtn: document.getElementById('btn-next-turn')
+      speedControls: document.getElementById('speed-controls')
     }
 
+    this.speedButtons = []
     this.onNextTurn = null
+    this.setupSpeedButtons()
     this.setupEventListeners()
   }
 
-  setupEventListeners() {
-    this.elements.nextTurnBtn?.addEventListener('click', () => {
-      console.log('Play/Pause clicked, paused:', GameState.paused)
-      GameState.togglePause()
-      this.updatePauseButton()
+  setupSpeedButtons() {
+    const container = this.elements.speedControls
+    if (!container) return
+
+    const speedOptions = GAME_CONFIG.speedOptions || []
+
+    speedOptions.forEach((option, index) => {
+      const btn = document.createElement('button')
+      btn.className = 'btn-speed'
+      btn.textContent = option.label
+      btn.dataset.speedIndex = index
+      btn.addEventListener('click', () => {
+        GameState.setSpeed(index)
+      })
+      container.appendChild(btn)
+      this.speedButtons.push(btn)
     })
 
+    // Set initial state
+    this.updateSpeedButtons()
+  }
+
+  setupEventListeners() {
     // Listen for game state changes
     GameState.on('turnProcessed', () => this.update())
     GameState.on('treasuryChanged', () => this.updateTreasury())
     GameState.on('soldiersChanged', () => this.updateSoldiers())
 
-    // Listen for pause/resume events
-    GameState.on('paused', () => this.updatePauseButton())
-    GameState.on('resumed', () => this.updatePauseButton())
+    // Listen for speed change events
+    GameState.on('speedChanged', () => this.updateSpeedButtons())
   }
 
   // Set callback for next turn button (kept for compatibility)
@@ -39,17 +57,16 @@ export class TopBar {
     this.onNextTurn = callback
   }
 
-  // Update pause/play button text
-  updatePauseButton() {
-    if (this.elements.nextTurnBtn) {
-      if (GameState.paused) {
-        this.elements.nextTurnBtn.textContent = '▶ Play'
-        this.elements.nextTurnBtn.classList.remove('playing')
+  // Update speed button states
+  updateSpeedButtons() {
+    const currentSpeed = GameState.getSpeed()
+    this.speedButtons.forEach((btn, index) => {
+      if (index === currentSpeed) {
+        btn.classList.add('active')
       } else {
-        this.elements.nextTurnBtn.textContent = '⏸ Pause'
-        this.elements.nextTurnBtn.classList.add('playing')
+        btn.classList.remove('active')
       }
-    }
+    })
   }
 
   // Update all stats

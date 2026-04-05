@@ -41,7 +41,6 @@ export class MapScene extends Phaser.Scene {
     this.mapData = generateMap({
       width: 12,
       height: 10,
-      seed: 12345,
       name: 'Test Map'
     })
 
