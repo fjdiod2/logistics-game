@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Logistics Game</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #1a1a2e;
+        color: #eee;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #game-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      #top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #0f3460;
+        padding: 8px 16px;
+        border-bottom: 2px solid #e94560;
+      }
+
+      #top-bar .stats {
+        display: flex;
+        gap: 24px;
+      }
+
+      #top-bar .stat {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      #top-bar .stat-label {
+        color: #888;
+        font-size: 12px;
+      }
+
+      #top-bar .stat-value {
+        font-size: 16px;
+        font-weight: bold;
+      }
+
+      #top-bar .stat-value.gold { color: #ffd700; }
+      #top-bar .stat-value.pop { color: #4ade80; }
+      #top-bar .stat-value.soldiers { color: #f87171; }
+
+      #top-bar .controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn {
+        background: #e94560;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+      }
+
+      .btn:hover { background: #ff6b8a; }
+      .btn:disabled { background: #555; cursor: not-allowed; }
+      .btn.playing { background: #4ade80; }
+      .btn.playing:hover { background: #22c55e; }
+
+      .btn-small {
+        background: #0f3460;
+        color: #eee;
+        border: 1px solid #e94560;
+        padding: 4px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .btn-small:hover { background: #1a4a7a; }
+
+      #main-area {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      #info-panel {
+        width: 300px;
+        background: #16213e;
+        border-right: 2px solid #0f3460;
+        padding: 12px;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+
+      #info-panel h2 {
+        color: #e94560;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #0f3460;
+      }
+
+      #info-panel .section {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #0f3460;
+      }
+
+      #info-panel .section:last-child {
+        border-bottom: none;
+      }
+
+      #info-panel .label {
+        color: #888;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+      }
+
+      .province-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #fff;
+      }
+
+      .province-coords {
+        font-size: 12px;
+        color: #888;
+        margin-top: 4px;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+
+      .stat-value { font-size: 16px; font-weight: bold; }
+      .stat-value.gold { color: #ffd700; }
+      .stat-label { font-size: 12px; color: #888; }
+      .stat-change { font-size: 12px; }
+      .stat-change.positive { color: #4ade80; }
+      .stat-change.negative { color: #f87171; }
+
+      /* Worker sliders */
+      .worker-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .worker-row.idle {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px dashed #0f3460;
+      }
+
+      .worker-label {
+        font-size: 12px;
+        width: 90px;
+        flex-shrink: 0;
+      }
+
+      .worker-slider {
+        flex: 1;
+        height: 6px;
+        -webkit-appearance: none;
+        background: #0f3460;
+        border-radius: 3px;
+        outline: none;
+      }
+
+      .worker-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        background: #e94560;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .worker-slider:disabled {
+        opacity: 0.5;
+      }
+
+      .worker-value {
+        font-size: 12px;
+        width: 35px;
+        text-align: right;
+        color: #4ade80;
+      }
+
+      /* Extractors */
+      .extractor-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .extractor-name {
+        font-size: 12px;
+        width: 70px;
+        flex-shrink: 0;
+      }
+
+      .capacity-bar {
+        flex: 1;
+        height: 16px;
+        background: #0f3460;
+        border-radius: 3px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .capacity-fill {
+        height: 100%;
+        background: #4ade80;
+        transition: width 0.3s;
+      }
+
+      .capacity-bar.full .capacity-fill {
+        background: #f87171;
+      }
+
+      .capacity-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 10px;
+        color: #fff;
+        text-shadow: 0 0 2px #000;
+      }
+
+      .production-rate {
+        font-size: 11px;
+        color: #4ade80;
+        width: 55px;
+        text-align: right;
+      }
+
+      .production-rate .rate-note {
+        color: #888;
+        font-size: 10px;
+      }
+
+      /* Supply/demand rate display */
+      .rate-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      .rate-label {
+        color: #888;
+        width: 45px;
+        flex-shrink: 0;
+      }
+
+      .rate-input {
+        font-weight: bold;
+      }
+
+      .rate-input.balanced { color: #4ade80; }
+      .rate-input.warning { color: #facc15; }
+      .rate-input.critical { color: #f87171; }
+
+      .rate-output {
+        color: #4ade80;
+        font-weight: bold;
+      }
+
+      .supply-info {
+        font-size: 11px;
+        margin-left: auto;
+      }
+
+      .supply-info.balanced { color: #4ade80; }
+      .supply-info.warning { color: #facc15; }
+      .supply-info.critical { color: #f87171; }
+
+      .input-storage {
+        margin-top: 2px;
+        color: #facc15 !important;
+      }
+
+      /* Building */
+      .building-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .building-name {
+        font-size: 14px;
+        font-weight: bold;
+      }
+
+      .building-level {
+        font-size: 11px;
+        color: #888;
+      }
+
+      .building-status {
+        font-size: 12px;
+        padding: 6px 8px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+      }
+
+      .building-status.constructing {
+        background: #854d0e;
+        color: #fef08a;
+      }
+
+      .building-status.upgrading {
+        background: #1e3a5f;
+        color: #7dd3fc;
+      }
+
+      .recipe-info, .recruitment-info {
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .recipe-name {
+        color: #888;
+        margin-bottom: 4px;
+      }
+
+      .production-active {
+        color: #4ade80;
+      }
+
+      .production-blocked {
+        color: #f87171;
+      }
+
+      .pop-consumed {
+        color: #f87171;
+        font-size: 11px;
+      }
+
+      .building-storage, .soldier-storage {
+        font-size: 11px;
+        color: #888;
+        margin-top: 4px;
+      }
+
+      .storage-item {
+        margin-right: 8px;
+      }
+
+      .empty-slot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        background: #0f3460;
+        border-radius: 4px;
+        color: #666;
+      }
+
+      /* Resources */
+      #info-panel .resources {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      #info-panel .resource-tag {
+        background: #0f3460;
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+      }
+
+      #info-panel .no-selection {
+        color: #666;
+        font-style: italic;
+        text-align: center;
+        margin-top: 40px;
+      }
+
+      #map-container {
+        flex: 1;
+        background: #0f0f1a;
+      }
+
+      #map-container canvas {
+        display: block;
+      }
+
+      /* Build Modal */
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+
+      .modal.hidden {
+        display: none;
+      }
+
+      .modal-content {
+        background: #16213e;
+        border: 2px solid #e94560;
+        border-radius: 8px;
+        padding: 20px;
+        min-width: 320px;
+        max-width: 400px;
+      }
+
+      .modal-content h3 {
+        color: #e94560;
+        margin-bottom: 16px;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      #build-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .build-option {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        background: #0f3460;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.1s;
+      }
+
+      .build-option:hover {
+        background: #1a4a7a;
+        transform: translateX(4px);
+      }
+
+      .build-option.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .build-option.disabled:hover {
+        background: #0f3460;
+        transform: none;
+      }
+
+      .build-option-icon {
+        font-size: 32px;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1a1a2e;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+
+      .build-option-info {
+        flex: 1;
+      }
+
+      .build-option-name {
+        font-size: 14px;
+        font-weight: bold;
+        color: #fff;
+        margin-bottom: 4px;
+      }
+
+      .build-option-desc {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 6px;
+      }
+
+      .build-option-cost {
+        font-size: 12px;
+        color: #ffd700;
+      }
+
+      .build-option-cost.cannot-afford {
+        color: #f87171;
+      }
+
+      .btn-cancel {
+        width: 100%;
+        background: #333;
+        color: #888;
+        border: 1px solid #555;
+        padding: 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      .btn-cancel:hover {
+        background: #444;
+        color: #eee;
+      }
+
+      /* Recipe selection */
+      .recipe-selection-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #0f3460;
+        font-size: 14px;
+        color: #eee;
+      }
+
+      .back-arrow {
+        color: #e94560;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+      }
+
+      .back-arrow:hover {
+        background: #0f3460;
+      }
+
+      .recipe-option .build-option-desc.recipe-formula {
+        color: #aaa;
+        font-size: 12px;
+      }
+
+      .build-option-time {
+        font-size: 11px;
+        color: #888;
+        margin-top: 4px;
+      }
+
+      /* Transport Storage styles */
+      .transport-capacity {
+        margin-bottom: 8px;
+      }
+
+      .transport-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .transport-item {
+        font-size: 11px;
+        background: #0f3460;
+        padding: 3px 6px;
+        border-radius: 3px;
+        color: #60a5fa;
+      }
+
+      /* Railroad UI styles */
+      .railroad-group {
+        margin-bottom: 12px;
+      }
+
+      .railroad-group-label {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 6px;
+      }
+
+      .railroad-item {
+        background: #0f3460;
+        border-radius: 4px;
+        padding: 8px;
+        margin-bottom: 8px;
+      }
+
+      .railroad-item.constructing {
+        opacity: 0.7;
+      }
+
+      .railroad-item.incoming {
+        background: #1a3a5f;
+      }
+
+      .railroad-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+
+      .railroad-dest {
+        font-size: 12px;
+        color: #eee;
+      }
+
+      .railroad-arrow {
+        color: #4ade80;
+        margin-right: 4px;
+      }
+
+      .railroad-item.incoming .railroad-arrow {
+        color: #60a5fa;
+      }
+
+      .railroad-stats {
+        font-size: 10px;
+        color: #888;
+      }
+
+      .railroad-blocked {
+        background: #f87171;
+        color: #fff;
+        font-size: 9px;
+        padding: 1px 4px;
+        border-radius: 2px;
+        margin-left: 6px;
+      }
+
+      .railroad-construction {
+        font-size: 11px;
+        color: #facc15;
+        padding: 4px 0;
+      }
+
+      .distribution-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .distribution-good {
+        font-size: 11px;
+        width: 70px;
+        flex-shrink: 0;
+      }
+
+      .distribution-slider {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        background: #1a1a2e;
+        border-radius: 2px;
+        outline: none;
+      }
+
+      .distribution-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #4ade80;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .distribution-value {
+        font-size: 10px;
+        width: 30px;
+        text-align: right;
+        color: #4ade80;
+      }
+
+      .no-railroads {
+        font-size: 12px;
+        color: #666;
+        font-style: italic;
+        padding: 8px 0;
+      }
+
+      .no-goods {
+        font-size: 11px;
+        color: #666;
+        font-style: italic;
+        padding: 4px 0;
+      }
+
+      .railroad-max {
+        font-size: 11px;
+        color: #888;
+        padding: 4px 0;
+      }
+
+      .incoming-amount {
+        font-size: 10px;
+        color: #60a5fa;
+      }
+
+      .btn-railroad {
+        margin-top: 8px;
+        width: 100%;
+      }
+
+      /* Railroad build confirmation modal */
+      .railroad-confirm {
+        margin-bottom: 16px;
+      }
+
+      .railroad-confirm-info {
+        background: #0f3460;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+
+      .railroad-confirm-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+
+      .railroad-confirm-row:last-child {
+        margin-bottom: 0;
+      }
+
+      .railroad-confirm-label {
+        color: #888;
+      }
+
+      .railroad-confirm-value {
+        color: #eee;
+        font-weight: bold;
+      }
+
+      .railroad-confirm-value.cost {
+        color: #ffd700;
+      }
+
+      .railroad-confirm-value.loss {
+        color: #f87171;
+      }
+
+      .btn-confirm-railroad {
+        background: #4ade80;
+        width: 100%;
+        margin-bottom: 8px;
+      }
+
+      .btn-confirm-railroad:hover {
+        background: #22c55e;
+      }
+
+      /* Enemy province styles */
+      .province-enemy {
+        border-left: 3px solid #f87171;
+        padding-left: 9px;
+      }
+
+      .enemy-indicator {
+        display: inline-block;
+        background: #f87171;
+        color: #fff;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        margin-top: 8px;
+      }
+
+      .info-restricted {
+        opacity: 0.7;
+      }
+
+      .info-restricted .stat-value.restricted {
+        color: #888;
+        font-style: italic;
+      }
+
+      .restricted-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #666;
+        font-size: 12px;
+        font-style: italic;
+        padding: 12px 0;
+      }
+
+      .lock-icon {
+        font-size: 16px;
+      }
+
+      /* Combat UI styles */
+      .combat-section {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-left: 3px solid #f87171;
+        padding-left: 9px;
+      }
+
+      .stat-value.soldiers {
+        color: #f87171;
+      }
+
+      .stat-value.soldiers.enemy {
+        color: #888;
+      }
+
+      .combat-indicator {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+      }
+
+      .combat-indicator.in-combat {
+        background: #7f1d1d;
+        color: #fca5a5;
+        animation: pulse-combat 1.5s ease-in-out infinite;
+      }
+
+      .combat-indicator.under-attack {
+        background: #854d0e;
+        color: #fef08a;
+      }
+
+      .combat-indicator.projecting {
+        background: #14532d;
+        color: #86efac;
+      }
+
+      @keyframes pulse-combat {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+
+      .control-section {
+        margin-top: 8px;
+      }
+
+      .control-label {
+        font-size: 11px;
+        color: #f87171;
+        margin-bottom: 4px;
+      }
+
+      .control-bar {
+        height: 8px;
+        background: #1a1a2e;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .control-bar.your-control {
+        background: #14532d;
+      }
+
+      .control-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f87171 0%, #dc2626 100%);
+        transition: width 0.3s ease;
+      }
+
+      .control-bar.your-control .control-fill {
+        background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+      }
+
+      .control-percent {
+        font-size: 11px;
+        color: #4ade80;
+        margin-top: 4px;
+        text-align: center;
+      }
+
+      /* Projection details */
+      .projection-details {
+        margin-top: 8px;
+        padding: 8px;
+        background: #0f3460;
+        border-radius: 4px;
+      }
+
+      .projection-label {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 6px;
+      }
+
+      .projection-target {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        margin-bottom: 4px;
+        padding: 4px 6px;
+        background: #1a1a2e;
+        border-radius: 3px;
+      }
+
+      .target-coords {
+        color: #eee;
+        font-family: monospace;
+      }
+
+      .target-control {
+        color: #4ade80;
+        font-weight: bold;
+      }
+
+      .target-progress {
+        color: #888;
+        font-size: 10px;
+      }
+
+      .attrition-info {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px dashed #333;
+      }
+
+      .attrition-label {
+        font-size: 11px;
+        color: #888;
+      }
+
+      .attrition-value {
+        font-size: 12px;
+        color: #f87171;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div id="top-bar">
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Treasury</span>
+            <span class="stat-value gold" id="stat-treasury">1,000 💰</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Population</span>
+            <span class="stat-value pop" id="stat-population">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Soldiers</span>
+            <span class="stat-value soldiers" id="stat-soldiers">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Turn</span>
+            <span class="stat-value" id="stat-turn">1</span>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn" id="btn-next-turn">▶ Play</button>
+        </div>
+      </div>
+      <div id="main-area">
+        <div id="info-panel">
+          <h2>Province Info</h2>
+          <div id="province-info">
+            <p class="no-selection">Click a hex to select</p>
+          </div>
+        </div>
+        <div id="map-container"></div>
+      </div>
+    </div>
+    <div id="build-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Build Structure</h3>
+        <div id="build-options"></div>
+        <button class="btn-cancel">Cancel</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
