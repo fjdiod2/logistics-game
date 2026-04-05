@@ -11,9 +11,11 @@ import {
 } from '../utils/hexUtils.js'
 import { GameState } from '../systems/GameState.js'
 import { railroadBuilder } from '../ui/RailroadBuilder.js'
+import { projectionArrowBuilder } from '../ui/ProjectionArrowBuilder.js'
 import { isOwnedByPlayer } from '../systems/Ownership.js'
 import { getSoldiers, getCombatStatus } from '../systems/Combat.js'
 import { GAME_CONFIG } from '../data/gameConfig.js'
+import { getHQSummary, getProjectionRadius } from '../systems/ArmyHQ.js'
 
 export class MapScene extends Phaser.Scene {
   constructor() {
@@ -21,6 +23,7 @@ export class MapScene extends Phaser.Scene {
     this.mapData = null
     this.hexGraphics = null
     this.railroadGraphics = null
+    this.projectionGraphics = null  // Graphics for Army HQ projection arrows
     this.selectedHex = null
     this.mapOffset = { x: 100, y: 80 }
     this.buildingIcons = new Map()  // Track building icon text objects
@@ -29,6 +32,7 @@ export class MapScene extends Phaser.Scene {
     this.combatIcons = new Map()    // Track combat indicator text objects
     this.controlGraphics = null     // Graphics for control projection arrows
     this.railroadBuildMode = false
+    this.projectionBuildMode = false
     this.previewTooltip = null
   }
 
@@ -45,6 +49,7 @@ export class MapScene extends Phaser.Scene {
     this.hexGraphics = this.add.graphics()
     this.railroadGraphics = this.add.graphics()
     this.controlGraphics = this.add.graphics()
+    this.projectionGraphics = this.add.graphics()
 
     // Create preview tooltip
     this.previewTooltip = this.add.text(0, 0, '', {
@@ -64,6 +69,9 @@ export class MapScene extends Phaser.Scene {
 
     // Set up railroad builder with map scene reference
     railroadBuilder.setMapScene(this)
+
+    // Set up projection arrow builder
+    projectionArrowBuilder.setMapScene(this)
 
     // Set up input
     this.input.on('pointerdown', this.handleClick, this)
@@ -94,18 +102,48 @@ export class MapScene extends Phaser.Scene {
         }
         this.hideRailroadPreview()
       }
+
+      // Handle projection arrow build finish
+      if (projectionArrowBuilder.isActive() && !pointer.rightButtonDown()) {
+        const buildData = projectionArrowBuilder.finishBuild()
+        if (buildData && buildData.valid) {
+          this.game.events.emit('projectionBuildFinish', buildData)
+        }
+        this.hideProjectionPreview()
+      }
+    })
+
+    // Handle mouse wheel for projection width adjustment
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY, deltaZ) => {
+      if (projectionArrowBuilder.isActive()) {
+        projectionArrowBuilder.adjustWidth(-deltaY)
+        // Redraw preview with new width
+        const worldX = pointer.x - this.mapOffset.x
+        const worldY = pointer.y - this.mapOffset.y
+        const previewData = projectionArrowBuilder.updatePreview(worldX, worldY)
+        if (previewData) {
+          this.drawProjectionPreview(previewData, pointer.x, pointer.y)
+        }
+      }
     })
 
     // Listen for turn processed to redraw map
     this.game.events.on('turnProcessed', () => {
       this.drawMap()
       this.drawRailroads()
+      this.drawProjectionArrows()
     })
 
     // Listen for railroad build start
     this.game.events.on('startRailroadBuild', (sourceHex) => {
       this.railroadBuildMode = true
       railroadBuilder.startBuild(sourceHex.q, sourceHex.r)
+    })
+
+    // Listen for projection arrow build start
+    this.game.events.on('startProjectionBuild', (hqProvince) => {
+      this.projectionBuildMode = true
+      projectionArrowBuilder.startBuild(hqProvince)
     })
   }
 
@@ -129,6 +167,17 @@ export class MapScene extends Phaser.Scene {
 
       if (previewData) {
         this.drawRailroadPreview(previewData, pointer.x, pointer.y)
+      }
+    }
+
+    // Handle projection arrow build preview
+    if (projectionArrowBuilder.isActive()) {
+      const worldX = pointer.x - this.mapOffset.x
+      const worldY = pointer.y - this.mapOffset.y
+      const previewData = projectionArrowBuilder.updatePreview(worldX, worldY)
+
+      if (previewData) {
+        this.drawProjectionPreview(previewData, pointer.x, pointer.y)
       }
     }
   }
@@ -215,6 +264,9 @@ export class MapScene extends Phaser.Scene {
 
     // Draw control projection arrows
     this.drawControlProjectionArrows()
+
+    // Draw Army HQ projection arrows (persistent, not combat-based)
+    this.drawProjectionArrows()
   }
 
   drawControlProjectionArrows() {
@@ -701,5 +753,249 @@ export class MapScene extends Phaser.Scene {
     this.previewTooltip.setVisible(false)
     this.railroadGraphics.clear()
     this.drawRailroads()
+  }
+
+  /**
+   * Draw persistent Army HQ projection arrows
+   */
+  drawProjectionArrows() {
+    this.projectionGraphics.clear()
+
+    for (const province of this.mapData.getAllProvinces()) {
+      // Only show for player's HQs
+      if (!isOwnedByPlayer(province, GameState.currentPlayerId)) continue
+      if (!province.building || province.building.type !== 'armyHQ') continue
+
+      const hqSummary = getHQSummary(province, this.mapData)
+      if (!hqSummary || !hqSummary.operational) continue
+      if (!hqSummary.projection.enabled) continue
+
+      // Draw the arrow from HQ to target
+      this.drawHQProjectionArrow(
+        province,
+        hqSummary.projection,
+        hqSummary.distribution,
+        hqSummary.front,
+        hqSummary.radius
+      )
+    }
+  }
+
+  /**
+   * Draw an HQ projection arrow with distribution visualization
+   */
+  drawHQProjectionArrow(hqProvince, projection, distribution, front, radius) {
+    const hqPixel = axialToPixel(hqProvince.q, hqProvince.r)
+    const hx = hqPixel.x + this.mapOffset.x
+    const hy = hqPixel.y + this.mapOffset.y
+
+    const targetPixel = axialToPixel(projection.targetQ, projection.targetR)
+    const tx = targetPixel.x + this.mapOffset.x
+    const ty = targetPixel.y + this.mapOffset.y
+
+    // Draw projection radius indicator (subtle circle)
+    this.projectionGraphics.lineStyle(1, 0x4ade80, 0.2)
+    this.projectionGraphics.strokeCircle(hx, hy, radius * HEX_SIZE * 1.5)
+
+    // Draw main arrow from HQ to target
+    const arrowColor = 0x22c55e  // Green for player
+    this.drawProjectionMainArrow(hx, hy, tx, ty, arrowColor, projection.width)
+
+    // Draw spread fan lines based on width
+    if (projection.width > 0.1) {
+      this.drawSpreadFan(hx, hy, tx, ty, projection.width, arrowColor)
+    }
+
+    // Highlight front tiles with soldier distribution
+    for (const deploy of distribution) {
+      const pixel = axialToPixel(deploy.q, deploy.r)
+      const fx = pixel.x + this.mapOffset.x
+      const fy = pixel.y + this.mapOffset.y
+
+      // Draw soldier count bubble
+      const bubbleRadius = Math.min(18, Math.max(10, deploy.soldiers / 5 + 8))
+      this.projectionGraphics.fillStyle(0x22c55e, 0.6)
+      this.projectionGraphics.fillCircle(fx, fy, bubbleRadius)
+
+      // Draw the count (handled by Phaser text objects - simplified here)
+      this.projectionGraphics.lineStyle(2, 0xffffff, 0.5)
+      this.projectionGraphics.strokeCircle(fx, fy, bubbleRadius)
+    }
+  }
+
+  /**
+   * Draw the main projection arrow
+   */
+  drawProjectionMainArrow(x1, y1, x2, y2, color, width) {
+    const dx = x2 - x1
+    const dy = y2 - y1
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    // Arrow thickness based on width setting
+    const thickness = 4 + width * 4
+
+    // Draw curved arrow body
+    const perpX = -dy / dist
+    const perpY = dx / dist
+    const curveAmount = 15
+
+    const midX = (x1 + x2) / 2 + perpX * curveAmount
+    const midY = (y1 + y2) / 2 + perpY * curveAmount
+
+    this.projectionGraphics.lineStyle(thickness, color, 0.7)
+    this.projectionGraphics.beginPath()
+    this.projectionGraphics.moveTo(x1, y1)
+
+    // Quadratic curve
+    const steps = 15
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps
+      const invT = 1 - t
+      const px = invT * invT * x1 + 2 * invT * t * midX + t * t * x2
+      const py = invT * invT * y1 + 2 * invT * t * midY + t * t * y2
+      this.projectionGraphics.lineTo(px, py)
+    }
+    this.projectionGraphics.strokePath()
+
+    // Draw arrowhead
+    const angle = Math.atan2(y2 - midY, x2 - midX)
+    const arrowSize = thickness + 6
+    const arrowAngle = Math.PI / 5
+
+    this.projectionGraphics.fillStyle(color, 0.8)
+    this.projectionGraphics.beginPath()
+    this.projectionGraphics.moveTo(x2, y2)
+    this.projectionGraphics.lineTo(
+      x2 - arrowSize * Math.cos(angle - arrowAngle),
+      y2 - arrowSize * Math.sin(angle - arrowAngle)
+    )
+    this.projectionGraphics.lineTo(
+      x2 - arrowSize * Math.cos(angle + arrowAngle),
+      y2 - arrowSize * Math.sin(angle + arrowAngle)
+    )
+    this.projectionGraphics.closePath()
+    this.projectionGraphics.fillPath()
+  }
+
+  /**
+   * Draw spread fan lines showing projection cone
+   */
+  drawSpreadFan(x1, y1, x2, y2, width, color) {
+    const dx = x2 - x1
+    const dy = y2 - y1
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    const angle = Math.atan2(dy, dx)
+
+    // Fan angle based on width (0 = 0 degrees, 1 = 60 degrees)
+    const fanAngle = width * Math.PI / 3
+
+    const fanLength = dist * 0.7
+
+    // Draw fan lines
+    this.projectionGraphics.lineStyle(1, color, 0.3)
+
+    // Left fan line
+    const leftAngle = angle - fanAngle / 2
+    this.projectionGraphics.beginPath()
+    this.projectionGraphics.moveTo(x1, y1)
+    this.projectionGraphics.lineTo(
+      x1 + Math.cos(leftAngle) * fanLength,
+      y1 + Math.sin(leftAngle) * fanLength
+    )
+    this.projectionGraphics.strokePath()
+
+    // Right fan line
+    const rightAngle = angle + fanAngle / 2
+    this.projectionGraphics.beginPath()
+    this.projectionGraphics.moveTo(x1, y1)
+    this.projectionGraphics.lineTo(
+      x1 + Math.cos(rightAngle) * fanLength,
+      y1 + Math.sin(rightAngle) * fanLength
+    )
+    this.projectionGraphics.strokePath()
+
+    // Draw arc connecting fan lines
+    this.projectionGraphics.beginPath()
+    this.projectionGraphics.arc(x1, y1, fanLength * 0.5, leftAngle, rightAngle)
+    this.projectionGraphics.strokePath()
+  }
+
+  /**
+   * Draw projection arrow build preview
+   */
+  drawProjectionPreview(previewData, mouseX, mouseY) {
+    this.projectionGraphics.clear()
+
+    // First draw existing projection arrows
+    this.drawProjectionArrows()
+
+    const { hqProvince, targetHex, width, front, distribution, valid, reason, radius } = previewData
+
+    const hqPixel = axialToPixel(hqProvince.q, hqProvince.r)
+    const hx = hqPixel.x + this.mapOffset.x
+    const hy = hqPixel.y + this.mapOffset.y
+
+    const targetPixel = axialToPixel(targetHex.q, targetHex.r)
+    const tx = targetPixel.x + this.mapOffset.x
+    const ty = targetPixel.y + this.mapOffset.y
+
+    // Draw projection radius
+    const previewColor = valid ? 0x4ade80 : 0xf87171
+    this.projectionGraphics.lineStyle(2, previewColor, 0.3)
+    this.projectionGraphics.strokeCircle(hx, hy, radius * HEX_SIZE * 1.5)
+
+    // Highlight front tiles
+    for (const tile of front) {
+      const pixel = axialToPixel(tile.q, tile.r)
+      const fx = pixel.x + this.mapOffset.x
+      const fy = pixel.y + this.mapOffset.y
+
+      this.projectionGraphics.fillStyle(previewColor, 0.2)
+      this.projectionGraphics.fillCircle(fx, fy, 16)
+    }
+
+    // Draw preview arrow
+    this.drawProjectionMainArrow(hx, hy, tx, ty, previewColor, width)
+
+    // Draw spread fan
+    if (width > 0.1) {
+      this.drawSpreadFan(hx, hy, tx, ty, width, previewColor)
+    }
+
+    // Show soldier distribution preview
+    for (const deploy of distribution) {
+      const pixel = axialToPixel(deploy.q, deploy.r)
+      const fx = pixel.x + this.mapOffset.x
+      const fy = pixel.y + this.mapOffset.y
+
+      const bubbleRadius = Math.min(18, Math.max(10, deploy.soldiers / 5 + 8))
+      this.projectionGraphics.fillStyle(previewColor, 0.5)
+      this.projectionGraphics.fillCircle(fx, fy, bubbleRadius)
+    }
+
+    // Update tooltip
+    let tooltipText
+    if (valid) {
+      const widthPercent = Math.round(width * 100)
+      tooltipText = `Target: (${targetHex.q},${targetHex.r})\nWidth: ${widthPercent}%\nFront tiles: ${front.length}\nScroll to adjust width`
+    } else {
+      tooltipText = reason || 'Invalid target'
+    }
+
+    this.previewTooltip.setText(tooltipText)
+    this.previewTooltip.setPosition(mouseX + 15, mouseY + 15)
+    this.previewTooltip.setVisible(true)
+    this.previewTooltip.setBackgroundColor(valid ? '#1a4a7a' : '#7a1a1a')
+  }
+
+  /**
+   * Hide projection preview
+   */
+  hideProjectionPreview() {
+    this.projectionBuildMode = false
+    projectionArrowBuilder.reset()
+    this.previewTooltip.setVisible(false)
+    this.projectionGraphics.clear()
+    this.drawProjectionArrows()
   }
 }

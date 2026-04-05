@@ -18,6 +18,11 @@ import {
 import { isOwnedByPlayer, getPopulationEstimate } from '../systems/Ownership.js'
 import { getCombatStatus, getSoldiers, calculateAttrition, getTerrainModifier } from '../systems/Combat.js'
 import { getNeighbors } from '../utils/hexUtils.js'
+import {
+  getHQSummary,
+  setProjectionWidth,
+  disableProjection
+} from '../systems/ArmyHQ.js'
 
 export class InfoPanel {
   constructor(containerId = 'province-info') {
@@ -58,6 +63,11 @@ export class InfoPanel {
     // Get combat status
     const combatStatus = getCombatStatus(province, GameState.mapData)
 
+    // Get Army HQ info if applicable
+    const hqSummary = province.building?.type === 'armyHQ'
+      ? getHQSummary(province, GameState.mapData)
+      : null
+
     this.container.innerHTML = `
       ${this.renderHeader(province, terrain)}
       ${this.renderCombatStatus(province, combatStatus)}
@@ -65,6 +75,7 @@ export class InfoPanel {
       ${this.renderWorkers(province, economic, building)}
       ${this.renderExtractors(economic)}
       ${this.renderBuilding(province, building)}
+      ${hqSummary ? this.renderArmyHQ(province, hqSummary) : ''}
       ${this.renderTransportStorage(province)}
       ${this.renderRailroads(province, railroads, availableGoods)}
       ${this.renderResources(province)}
@@ -72,6 +83,9 @@ export class InfoPanel {
 
     this.attachEventListeners(province)
     this.attachRailroadListeners(province, railroads)
+    if (hqSummary) {
+      this.attachHQListeners(province, hqSummary)
+    }
   }
 
   // Render limited view for enemy provinces
@@ -564,6 +578,169 @@ export class InfoPanel {
         </div>
       </div>
     `
+  }
+
+  renderArmyHQ(province, hqSummary) {
+    const { operational, soldiers, capacity, capacityPercent, radius, projection, maxDeployPerTurn, front, distribution } = hqSummary
+
+    if (!operational) {
+      return ''  // Building status shown in renderBuilding
+    }
+
+    // Depot capacity bar
+    const depotBarClass = capacityPercent >= 90 ? 'full' : ''
+
+    // Projection status
+    let projectionStatusHtml = ''
+    let projectionControlsHtml = ''
+
+    if (projection.enabled && projection.targetQ !== null) {
+      const widthPercent = Math.round(projection.width * 100)
+      const deployingCount = Math.min(soldiers, maxDeployPerTurn)
+
+      projectionStatusHtml = `
+        <div class="hq-projection-status active">
+          <div class="projection-header">
+            <span class="projection-status-icon">🎯</span>
+            <span>Projecting Force</span>
+          </div>
+          <div class="projection-target-info">
+            Target: (${projection.targetQ}, ${projection.targetR})
+          </div>
+          <div class="projection-deploy-info">
+            Will deploy: <span class="deploy-count">${deployingCount}</span> soldiers/turn
+          </div>
+          <div class="projection-front-info">
+            Front tiles: ${front.length} | Width: ${widthPercent}%
+          </div>
+        </div>
+      `
+
+      projectionControlsHtml = `
+        <div class="hq-projection-controls">
+          <div class="hq-width-control">
+            <span class="width-label">Width:</span>
+            <input type="range"
+              class="hq-width-slider"
+              id="hq-width-slider"
+              min="0" max="100"
+              value="${widthPercent}"
+            >
+            <span class="width-value" id="hq-width-value">${widthPercent}%</span>
+          </div>
+          <div class="hq-button-row">
+            <button class="btn-small btn-hq-adjust" id="btn-adjust-target">Adjust Target</button>
+            <button class="btn-small btn-hq-disable" id="btn-disable-projection">Disable</button>
+          </div>
+        </div>
+      `
+    } else {
+      projectionStatusHtml = `
+        <div class="hq-projection-status inactive">
+          <span class="projection-status-icon">⏸️</span>
+          <span>Projection Disabled</span>
+          ${front.length === 0 ? '<div class="no-front-warning">No enemies in range</div>' : ''}
+        </div>
+      `
+
+      projectionControlsHtml = `
+        <div class="hq-projection-controls">
+          <button class="btn-small btn-hq-target ${front.length === 0 ? 'disabled' : ''}" id="btn-set-target"
+            ${front.length === 0 ? 'disabled' : ''}>
+            Set Target
+          </button>
+        </div>
+      `
+    }
+
+    // Distribution preview (if active)
+    let distributionHtml = ''
+    if (projection.enabled && distribution.length > 0) {
+      const distItems = distribution.slice(0, 5).map(d => `
+        <div class="dist-item">
+          <span class="dist-target">(${d.q},${d.r})</span>
+          <span class="dist-soldiers">⚔️ ${d.soldiers}</span>
+        </div>
+      `).join('')
+
+      distributionHtml = `
+        <div class="hq-distribution">
+          <div class="dist-header">Deployment Preview:</div>
+          ${distItems}
+          ${distribution.length > 5 ? `<div class="dist-more">+${distribution.length - 5} more...</div>` : ''}
+        </div>
+      `
+    }
+
+    return `
+      <div class="section hq-section">
+        <div class="label">Army HQ Depot</div>
+        <div class="hq-depot">
+          <div class="depot-soldiers">
+            <span class="depot-icon">⚔️</span>
+            <span class="depot-count">${soldiers}</span>
+            <span class="depot-cap">/ ${capacity}</span>
+          </div>
+          <div class="capacity-bar ${depotBarClass}">
+            <div class="capacity-fill" style="width: ${capacityPercent}%"></div>
+          </div>
+        </div>
+        <div class="hq-stats">
+          <div class="hq-stat">
+            <span class="stat-label">Projection Range:</span>
+            <span class="stat-value">${radius} tiles</span>
+          </div>
+          <div class="hq-stat">
+            <span class="stat-label">Max Deploy/Turn:</span>
+            <span class="stat-value">${maxDeployPerTurn}</span>
+          </div>
+        </div>
+        ${projectionStatusHtml}
+        ${projectionControlsHtml}
+        ${distributionHtml}
+      </div>
+    `
+  }
+
+  attachHQListeners(province, hqSummary) {
+    // Width slider
+    const widthSlider = document.getElementById('hq-width-slider')
+    if (widthSlider) {
+      widthSlider.addEventListener('input', (e) => {
+        const percent = parseInt(e.target.value)
+        const width = percent / 100
+        setProjectionWidth(province.building, width)
+        document.getElementById('hq-width-value').textContent = `${percent}%`
+        // Trigger map redraw to show new distribution
+        this.onWorkerChange?.({ action: 'hqWidthChange', province })
+      })
+    }
+
+    // Set target button
+    const setTargetBtn = document.getElementById('btn-set-target')
+    if (setTargetBtn) {
+      setTargetBtn.addEventListener('click', () => {
+        this.onWorkerChange?.({ action: 'setProjectionTarget', province })
+      })
+    }
+
+    // Adjust target button
+    const adjustTargetBtn = document.getElementById('btn-adjust-target')
+    if (adjustTargetBtn) {
+      adjustTargetBtn.addEventListener('click', () => {
+        this.onWorkerChange?.({ action: 'setProjectionTarget', province })
+      })
+    }
+
+    // Disable projection button
+    const disableBtn = document.getElementById('btn-disable-projection')
+    if (disableBtn) {
+      disableBtn.addEventListener('click', () => {
+        disableProjection(province.building)
+        this.onWorkerChange?.({ action: 'hqProjectionDisabled', province })
+        this.update(province)  // Refresh panel
+      })
+    }
   }
 
   attachEventListeners(province) {

@@ -140,6 +140,15 @@ export const GAME_CONFIG = {
   },
 
   // ===================
+  // ARMY HQ
+  // ===================
+
+  armyHQ: {
+    maxDeploymentPerTurn: 50,     // Cap on soldiers deployed each turn from HQ
+    baseProjectionRadius: 3       // Default projection radius at level 1
+  },
+
+  // ===================
   // COMBAT
   // ===================
 

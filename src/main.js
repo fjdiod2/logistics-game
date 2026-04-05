@@ -6,6 +6,7 @@ import { BuildMenu } from './ui/BuildMenu.js'
 import { GameState } from './systems/GameState.js'
 import { createBuilding, getBuildCost } from './systems/Building.js'
 import { railroadBuilder } from './ui/RailroadBuilder.js'
+import { projectionArrowBuilder } from './ui/ProjectionArrowBuilder.js'
 
 function getMapContainerSize() {
   const container = document.getElementById('map-container')
@@ -147,6 +148,19 @@ function startGame() {
     } else if (data.action === 'buildRailroad') {
       // Start railroad build mode
       game.events.emit('startRailroadBuild', { q: data.province.q, r: data.province.r })
+    } else if (data.action === 'setProjectionTarget') {
+      // Start projection arrow build mode
+      game.events.emit('startProjectionBuild', data.province)
+    } else if (data.action === 'hqWidthChange' || data.action === 'hqProjectionDisabled') {
+      // HQ settings changed - redraw map
+      const mapScene = game.scene.getScene('MapScene')
+      if (mapScene) {
+        mapScene.drawMap()
+        mapScene.drawProjectionArrows()
+      }
+      if (selectedProvince) {
+        infoPanel.update(selectedProvince)
+      }
     } else {
       // Worker allocation changed - refresh display
       infoPanel.update(data)
@@ -177,6 +191,27 @@ function startGame() {
         railroadBuilder.cancel()
       }
     })
+  })
+
+  // Handle projection arrow build completion
+  game.events.on('projectionBuildFinish', (buildData) => {
+    // Confirm and apply projection settings
+    const success = projectionArrowBuilder.confirmBuild(buildData)
+    if (success) {
+      console.log('Projection target set:', buildData.targetHex)
+
+      // Refresh info panel
+      if (selectedProvince) {
+        infoPanel.update(selectedProvince)
+      }
+
+      // Redraw map
+      const mapScene = game.scene.getScene('MapScene')
+      if (mapScene) {
+        mapScene.drawMap()
+        mapScene.drawProjectionArrows()
+      }
+    }
   })
 
   // Handle build menu selection

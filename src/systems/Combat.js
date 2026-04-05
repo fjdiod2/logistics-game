@@ -3,6 +3,7 @@
 
 import { GAME_CONFIG } from '../data/gameConfig.js'
 import { getNeighbors } from '../utils/hexUtils.js'
+import { findPlayerHQs, processHQDeployment, validateProjection } from './ArmyHQ.js'
 
 /**
  * Get the number of soldiers in a province (from transportStorage)
@@ -342,6 +343,30 @@ export function checkControlReset(province) {
 }
 
 /**
+ * Process all Army HQ deployments
+ * @param {MapData} mapData - Map data
+ * @param {Object} gameState - Game state
+ * @returns {Array} - Array of deployment summaries
+ */
+export function processAllHQDeployments(mapData, gameState) {
+  const deployments = []
+
+  // Process for all players (currently just 0 and 1)
+  for (const playerId of [0, 1]) {
+    const hqs = findPlayerHQs(mapData, playerId)
+
+    for (const hqProvince of hqs) {
+      const result = processHQDeployment(hqProvince, mapData)
+      if (!result.skipped && result.totalDeployed > 0) {
+        deployments.push(result)
+      }
+    }
+  }
+
+  return deployments
+}
+
+/**
  * Main combat processor - call each turn
  * @param {MapData} mapData - The map data
  * @param {Object} gameState - Game state
@@ -353,8 +378,12 @@ export function processCombat(mapData, gameState) {
     controls: [],
     decays: [],
     captures: [],
-    controlResets: []
+    controlResets: [],
+    hqDeployments: []
   }
+
+  // Step 0: Process Army HQ deployments (before combat)
+  summary.hqDeployments = processAllHQDeployments(mapData, gameState)
 
   // Step 1: Check for control resets (defenders appeared)
   for (const province of mapData.getAllProvinces()) {

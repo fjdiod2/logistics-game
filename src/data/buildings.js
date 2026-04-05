@@ -55,6 +55,28 @@ export const BUILDING_TYPES = {
     // Population impact
     populationConsumed: true,  // recruiting reduces population
     growthPenaltyPerWorker: 0.0  // each 1% workers = -0.2% growth
+  },
+
+  armyHQ: {
+    id: 'armyHQ',
+    name: 'Army HQ',
+    icon: '🏛️',
+    description: 'Centralized command that collects soldiers and projects force across a front',
+
+    // Construction
+    baseBuildCost: 800,
+    baseBuildTime: 4,  // turns
+
+    // Upgrade levels
+    upgrades: [
+      { level: 1, name: 'Command Post', projectionRadius: 3, depotCapacity: 100, cost: 0, time: 0 },
+      { level: 2, name: 'Field HQ', projectionRadius: 4, depotCapacity: 200, cost: 500, time: 3 },
+      { level: 3, name: 'Regional Command', projectionRadius: 5, depotCapacity: 400, cost: 1000, time: 4 },
+      { level: 4, name: 'Army Corps HQ', projectionRadius: 6, depotCapacity: 800, cost: 2000, time: 5 }
+    ],
+
+    // HQ operates automatically - no workers needed
+    maxWorkerPercent: 0
   }
 }
 

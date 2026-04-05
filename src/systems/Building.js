@@ -21,7 +21,7 @@ export function createBuilding(buildingType, recipe = null) {
     type.baseBuildTime * GAME_CONFIG.constructionTimeMultiplier
   )
 
-  return {
+  const building = {
     type: buildingType,
     level: 1,
     recipe: buildingType === 'factory' ? recipe : null,
@@ -30,6 +30,19 @@ export function createBuilding(buildingType, recipe = null) {
     storage: {},        // output storage
     inputStorage: {}    // input storage (for factories)
   }
+
+  // Initialize Army HQ specific state
+  if (buildingType === 'armyHQ') {
+    building.storage = { soldiers: 0 }
+    building.projection = {
+      targetQ: null,
+      targetR: null,
+      width: 0.5,
+      enabled: false
+    }
+  }
+
+  return building
 }
 
 /**

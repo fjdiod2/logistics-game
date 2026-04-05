@@ -426,6 +426,32 @@ function withdrawFromSource(province, goodId, amount) {
 }
 
 /**
+ * Check if province has an operational Army HQ
+ * @param {Object} province - Province to check
+ * @returns {boolean}
+ */
+function hasOperationalArmyHQ(province) {
+  return province.building &&
+         province.building.type === 'armyHQ' &&
+         province.building.constructionProgress === 0 &&
+         province.building.upgradeProgress === 0
+}
+
+/**
+ * Get Army HQ depot capacity
+ * @param {Object} building - HQ building
+ * @returns {number}
+ */
+function getHQDepotCapacity(building) {
+  if (!building || building.type !== 'armyHQ') return 0
+
+  const level = building.level || 1
+  // Match the upgrade values from buildings.js
+  const capacities = { 1: 100, 2: 200, 3: 400, 4: 800 }
+  return capacities[level] || 100
+}
+
+/**
  * Deposit goods to destination province's transport storage
  * @param {Object} province - Destination province
  * @param {string} goodId - Good/resource ID
@@ -433,6 +459,11 @@ function withdrawFromSource(province, goodId, amount) {
  * @returns {number} - Actual amount deposited
  */
 function depositToDestination(province, goodId, amount) {
+  // Special handling for soldiers going to Army HQ
+  if (goodId === 'soldiers' && hasOperationalArmyHQ(province)) {
+    return depositToHQDepot(province, amount)
+  }
+
   // All transported goods go to transport storage
   if (!province.transportStorage) {
     province.transportStorage = {}
@@ -445,6 +476,33 @@ function depositToDestination(province, goodId, amount) {
 
   if (deposited > 0) {
     province.transportStorage[goodId] = (province.transportStorage[goodId] || 0) + deposited
+  }
+
+  return deposited
+}
+
+/**
+ * Deposit soldiers to Army HQ depot
+ * @param {Object} province - Province with Army HQ
+ * @param {number} amount - Soldiers to deposit
+ * @returns {number} - Actual amount deposited
+ */
+function depositToHQDepot(province, amount) {
+  const building = province.building
+  if (!building || building.type !== 'armyHQ') return 0
+
+  // Initialize storage if needed
+  if (!building.storage) {
+    building.storage = { soldiers: 0 }
+  }
+
+  const capacity = getHQDepotCapacity(building)
+  const current = building.storage.soldiers || 0
+  const spaceAvailable = Math.max(0, capacity - current)
+  const deposited = Math.min(amount, spaceAvailable)
+
+  if (deposited > 0) {
+    building.storage.soldiers = current + deposited
   }
 
   return deposited

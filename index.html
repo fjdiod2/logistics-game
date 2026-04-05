@@ -959,6 +959,237 @@
         color: #f87171;
         font-weight: bold;
       }
+
+      /* Army HQ styles */
+      .hq-section {
+        background: linear-gradient(135deg, #1a1a2e 0%, #1e3a5f 100%);
+        border-left: 3px solid #22c55e;
+        padding-left: 9px;
+      }
+
+      .hq-depot {
+        margin-bottom: 12px;
+      }
+
+      .depot-soldiers {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .depot-icon {
+        font-size: 16px;
+      }
+
+      .depot-count {
+        font-size: 20px;
+        font-weight: bold;
+        color: #22c55e;
+      }
+
+      .depot-cap {
+        font-size: 14px;
+        color: #888;
+      }
+
+      .hq-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 12px;
+        padding: 8px;
+        background: #0f3460;
+        border-radius: 4px;
+      }
+
+      .hq-stat {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+      }
+
+      .hq-stat .stat-label {
+        color: #888;
+      }
+
+      .hq-stat .stat-value {
+        color: #4ade80;
+        font-weight: bold;
+      }
+
+      .hq-projection-status {
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+
+      .hq-projection-status.active {
+        background: #14532d;
+        border: 1px solid #22c55e;
+      }
+
+      .hq-projection-status.inactive {
+        background: #1f2937;
+        border: 1px solid #4b5563;
+      }
+
+      .projection-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+
+      .hq-projection-status.active .projection-header {
+        color: #86efac;
+      }
+
+      .hq-projection-status.inactive .projection-header {
+        color: #9ca3af;
+      }
+
+      .projection-status-icon {
+        font-size: 14px;
+      }
+
+      .projection-target-info,
+      .projection-deploy-info,
+      .projection-front-info {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-bottom: 3px;
+      }
+
+      .deploy-count {
+        color: #22c55e;
+        font-weight: bold;
+      }
+
+      .no-front-warning {
+        font-size: 11px;
+        color: #f87171;
+        margin-top: 4px;
+      }
+
+      .hq-projection-controls {
+        margin-bottom: 10px;
+      }
+
+      .hq-width-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .width-label {
+        font-size: 11px;
+        color: #888;
+        width: 45px;
+      }
+
+      .hq-width-slider {
+        flex: 1;
+        height: 4px;
+        -webkit-appearance: none;
+        background: #1a1a2e;
+        border-radius: 2px;
+        outline: none;
+      }
+
+      .hq-width-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        background: #22c55e;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .width-value {
+        font-size: 11px;
+        width: 35px;
+        text-align: right;
+        color: #22c55e;
+      }
+
+      .hq-button-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn-hq-target,
+      .btn-hq-adjust {
+        flex: 1;
+        background: #22c55e;
+        color: #fff;
+        border: none;
+      }
+
+      .btn-hq-target:hover,
+      .btn-hq-adjust:hover {
+        background: #16a34a;
+      }
+
+      .btn-hq-target.disabled {
+        background: #4b5563;
+        cursor: not-allowed;
+      }
+
+      .btn-hq-disable {
+        background: #374151;
+        color: #9ca3af;
+        border: 1px solid #4b5563;
+      }
+
+      .btn-hq-disable:hover {
+        background: #4b5563;
+        color: #fff;
+      }
+
+      .hq-distribution {
+        background: #0f3460;
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 8px;
+      }
+
+      .dist-header {
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 6px;
+      }
+
+      .dist-item {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        padding: 3px 0;
+        border-bottom: 1px solid #1a1a2e;
+      }
+
+      .dist-item:last-child {
+        border-bottom: none;
+      }
+
+      .dist-target {
+        color: #9ca3af;
+        font-family: monospace;
+      }
+
+      .dist-soldiers {
+        color: #22c55e;
+        font-weight: bold;
+      }
+
+      .dist-more {
+        font-size: 10px;
+        color: #6b7280;
+        text-align: center;
+        padding-top: 4px;
+      }
     </style>
   </head>
   <body>
